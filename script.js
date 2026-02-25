@@ -2,8 +2,8 @@
 // 🔧 CONFIGURATION
 // ============================================
 const CONFIG = {
-    THINGSPEAK_CHANNEL_ID: 'YOUR_CHANNEL_ID', // Replace with your actual Channel ID
-    THINGSPEAK_READ_API_KEY: 'YOUR_READ_API_KEY', // Replace with your Read API Key
+    THINGSPEAK_CHANNEL_ID: '3277165', // Replace with your actual Channel ID
+    THINGSPEAK_READ_API_KEY: 'MWUXOBPOKXDK7TI5', // Replace with your Read API Key
     REFRESH_INTERVAL: 30000, // 30 seconds (ThingSpeak free tier limit)
     MAX_DATA_POINTS: 288, // 24 hours of data points
     
@@ -74,16 +74,16 @@ let dashboardState = {
  */
 async function fetchThingSpeakData() {
     try {
-        // Build ThingSpeak API URL
-        const url = `https://api.thingspeak.com/channels/${CONFIG.THINGSPEAK_CHANNEL_ID}/feeds.json?api_key=${CONFIG.THINGSPEAK_READ_API_KEY}&results=100`;
-        
-        const response = await fetch(url);
+        // Fetch data from local server proxy (bypasses CORS for private channels)
+        const response = await fetch('/api/thingspeak');
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
+        
+        console.log('📡 Data received from server');
         
         if (data.feeds && data.feeds.length > 0) {
             const latestFeed = data.feeds[data.feeds.length - 1];
@@ -120,7 +120,7 @@ async function fetchThingSpeakData() {
         }
     } catch (error) {
         console.error('❌ ThingSpeak API Error:', error);
-        console.log('💡 Check your Channel ID and Read API Key');
+        console.log('💡 Check your server connection');
         dashboardState.systemStatus = 'offline';
         return false;
     }
