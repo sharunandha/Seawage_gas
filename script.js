@@ -72,10 +72,24 @@ let dashboardState = {
 /**
  * Fetch data from ThingSpeak API
  */
+function getNewestMeaningfulFeed(feeds) {
+    const meaningfulFeeds = feeds.filter(feed => {
+        return [feed.field1, feed.field2, feed.field3, feed.field4, feed.field5].some(value => value !== undefined && value !== null && String(value).trim() !== '');
+    });
+
+    const source = meaningfulFeeds.length > 0 ? meaningfulFeeds : feeds;
+
+    return source.slice().sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return bTime - aTime;
+    })[0];
+}
+
 async function fetchThingSpeakData() {
     try {
         // Fetch data from local server proxy (bypasses CORS for private channels)
-        const response = await fetch('/api/thingspeak');
+        const response = await fetch('/api/thingspeak', { cache: 'no-store' });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -86,7 +100,7 @@ async function fetchThingSpeakData() {
         console.log('📡 Data received from server');
         
         if (data.feeds && data.feeds.length > 0) {
-            const latestFeed = data.feeds[data.feeds.length - 1];
+            const latestFeed = getNewestMeaningfulFeed(data.feeds);
             
             // Store previous data
             dashboardState.previousData = { ...dashboardState.currentData };
@@ -157,7 +171,11 @@ function storeHistoricalData(feeds) {
     dashboardState.historicalData.riskIndex = [];
     dashboardState.historicalData.timestamps = [];
     
-    feeds.forEach(feed => {
+    feeds.slice().sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return aTime - bTime;
+    }).forEach(feed => {
         const ch4 = parseFloat(feed.field1) || 0;
         const h2s = parseFloat(feed.field2) || 0;
         const co = parseFloat(feed.field3) || 0;

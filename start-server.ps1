@@ -3,6 +3,9 @@ $port = 8000
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 
+$thingSpeakChannelId = "3277165"
+$thingSpeakReadApiKey = "MWUXOBPOKXDK7TI5"
+
 try {
     $listener.Start()
     Write-Host @"
@@ -25,6 +28,39 @@ try {
         $response = $context.Response
 
         $url = $request.Url.LocalPath
+
+        if ($url -eq "/api/thingspeak") {
+            $proxyUrl = "https://api.thingspeak.com/channels/$thingSpeakChannelId/feeds.json?api_key=$thingSpeakReadApiKey&results=100"
+
+            try {
+                $proxyResponse = Invoke-WebRequest -Uri $proxyUrl -UseBasicParsing -TimeoutSec 30
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($proxyResponse.Content)
+
+                $response.StatusCode = 200
+                $response.ContentType = "application/json"
+                $response.Headers.Add("Access-Control-Allow-Origin", "*")
+                $response.Headers.Add("Cache-Control", "no-store")
+                $response.ContentLength64 = $bytes.Length
+                $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                Write-Host "✅ GET $url - 200 OK (proxied ThingSpeak)"
+            } catch {
+                $errorBody = [System.Text.Encoding]::UTF8.GetBytes((@{
+                    error = "Failed to fetch ThingSpeak data"
+                    details = $_.Exception.Message
+                } | ConvertTo-Json -Compress))
+
+                $response.StatusCode = 500
+                $response.ContentType = "application/json"
+                $response.Headers.Add("Access-Control-Allow-Origin", "*")
+                $response.ContentLength64 = $errorBody.Length
+                $response.OutputStream.Write($errorBody, 0, $errorBody.Length)
+                Write-Host "❌ GET $url - 500 ThingSpeak proxy failed"
+            }
+
+            $response.OutputStream.Close()
+            continue
+        }
+
         if ($url -eq "/" -or $url -eq "") {
             $url = "/login.html"
         }
